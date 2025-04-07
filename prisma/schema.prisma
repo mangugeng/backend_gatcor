@@ -1,0 +1,250 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  name          String
+  phone         String?
+  role          String         @default("customer")
+  emailVerified Boolean        @default(false)
+  vehicleType   String?
+  licenseNumber String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  driverStatus  DriverStatus?
+  driverLocation DriverLocation?
+  customerOrders Order[]       @relation("CustomerOrders")
+  driverOrders   Order[]       @relation("DriverOrders")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("CUSTOMER_SERVICE")
+  isActive  Boolean  @default(true)
+  contents  Content[]
+  tickets   CustomerServiceTicket[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CustomerServiceTicket {
+  id        String   @id @default(uuid())
+  status    String   @default("open")
+  subject   String
+  message   String
+  replies   CustomerServiceReply[]
+  admin     Admin    @relation(fields: [adminId], references: [id])
+  adminId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CustomerServiceReply {
+  id        String   @id @default(uuid())
+  message   String
+  ticket    CustomerServiceTicket @relation(fields: [ticketId], references: [id])
+  ticketId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FinanceTransaction {
+  id          String   @id @default(uuid())
+  type        String   // income, expense
+  amount      Float
+  description String
+  category    String
+  status      String   @default("pending") // pending, completed, cancelled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FinanceReport {
+  id          String   @id @default(uuid())
+  type        String   // daily, weekly, monthly, yearly
+  startDate   DateTime
+  endDate     DateTime
+  totalIncome Float
+  totalExpense Float
+  netIncome   Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TechnicalIssue {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  status      String   @default("open") // open, in_progress, resolved
+  priority    String   @default("medium") // low, medium, high
+  resolutions TechnicalResolution[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TechnicalResolution {
+  id          String        @id @default(uuid())
+  solution    String
+  issue       TechnicalIssue @relation(fields: [issueId], references: [id])
+  issueId     String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Content {
+  id          String   @id @default(uuid())
+  title       String
+  body        String
+  category    String
+  status      String   @default("draft") // draft, published, archived
+  author      Admin    @relation(fields: [authorId], references: [id])
+  authorId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Asset {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   // image, document, video, etc.
+  url         String
+  metadata    Json?    // size, dimensions, duration, etc.
+  status      String   @default("active") // active, archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Template {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  content     String
+  category    String
+  status      String   @default("active") // active, archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Workflow {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  steps       Json[]
+  triggers    Json[]
+  conditions  Json[]
+  actions     Json[]
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  executions WorkflowExecution[]
+}
+
+model WorkflowExecution {
+  id         String   @id @default(uuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id])
+  status     String
+  result     Json
+  input      Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model DriverStatus {
+  id        String   @id @default(uuid())
+  driverId  String   @unique
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  driver    User     @relation(fields: [driverId], references: [id])
+}
+
+model DriverLocation {
+  id        String   @id @default(uuid())
+  driverId  String   @unique
+  latitude  Float
+  longitude Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  driver    User     @relation(fields: [driverId], references: [id])
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  amount        Float
+  method        String   // credit_card, bank_transfer, e_wallet, etc.
+  status        String   @default("pending") // pending, processing, completed, failed, refunded
+  provider      String   // midtrans, xendit, etc.
+  providerRef   String?  // reference from payment provider
+  metadata      Json?    // additional payment data
+  refundAmount  Float?   // amount refunded if any
+  refundReason  String?  // reason for refund
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  order         Order    @relation(fields: [orderId], references: [id])
+  transactions  Transaction[] @relation("PaymentTransaction")
+}
+
+model Order {
+  id            String   @id @default(uuid())
+  customerId    String
+  driverId      String?
+  status        String   @default("pending") // pending, accepted, in_progress, completed, cancelled
+  pickupAddress String
+  dropoffAddress String
+  pickupLat     Float
+  pickupLng     Float
+  dropoffLat    Float
+  dropoffLng    Float
+  distance      Float
+  fare          Float
+  paymentStatus String   @default("pending") // pending, paid, refunded
+  rating        Rating?  @relation("OrderRating")
+  customer      User     @relation("CustomerOrders", fields: [customerId], references: [id])
+  driver        User?    @relation("DriverOrders", fields: [driverId], references: [id])
+  payment       Payment?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  transactions  Transaction[] @relation("OrderTransaction")
+}
+
+model Rating {
+  id          String   @id @default(uuid())
+  orderId     String   @unique
+  rating      Int      @db.SmallInt
+  review      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  order       Order    @relation("OrderRating", fields: [orderId], references: [id])
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  orderId     String?
+  paymentId   String?
+  type        String   // INCOME, EXPENSE
+  amount      Float
+  description String
+  status      String   // PENDING, COMPLETED, FAILED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  order   Order?   @relation("OrderTransaction", fields: [orderId], references: [id])
+  payment Payment? @relation("PaymentTransaction", fields: [paymentId], references: [id])
+}
