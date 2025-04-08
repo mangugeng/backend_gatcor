@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: gatcor-backend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    plan: free
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    env: node-18
+    region: singapore
+    scaling:
+      minInstances: 1
+      maxInstances: 1
